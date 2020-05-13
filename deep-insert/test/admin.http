@@ -1,0 +1,25 @@
+### 1-to-1 deep insert
+
+POST http://localhost:4004/admin/Students HTTP/1.1
+content-type: application/json
+
+{
+    "name": "Peter Griffith",
+    "room": {
+       "address": "Mountain Ave. 137",
+       "roomnumber": 24
+    },
+    "books": [
+        {
+           "title": "Experimental Physics I",
+           "state": 2
+        },
+        {
+            "title": "Introduction to Linear Algebra",
+            "state": null
+        },
+        {
+            "title": "The End of Times"
+        }
+    ]
+}
