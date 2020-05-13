@@ -1,4 +1,4 @@
-### 1-to-1 deep insert
+### Single entity insert
 
 POST http://localhost:4004/admin/Students HTTP/1.1
 content-type: application/json
