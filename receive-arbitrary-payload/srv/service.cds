@@ -1,10 +1,10 @@
-service Data @(path: '/data') {
+service DataSink @(path: '/') {
+
+  /*
+   * Use a volatile entity with a single attribute.
+   */
   @cds.persistence.skip
-  @nokey
-  entity Json {
-      // WIP;
-      // https://answers.sap.com/questions/13048183/disabling-the-default-crud-handlers.html
-     // key id: UUID;
-      data: String;
+  entity Data {
+      key data: String;
   }
 }
