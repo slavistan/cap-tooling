@@ -1,0 +1,8 @@
+###
+
+POST http://localhost:4004/data/Json HTTP/1.1
+content-type: application/json
+
+{
+    "data": "is this the real life?"
+}
