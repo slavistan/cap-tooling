@@ -52,6 +52,8 @@ watch/parseopt() {
   zparseopts -a opts -- l d -pre+:=precmds
 
   # concatenate all flags to a single string FLAGS
+  # TODO
+  #   [ ]: add --redeploy and --watchlist long alternatives
   FLAGS=$(echo "$opts" | tr -d ' -')
 
   # store precmds as array PRECMDS
