@@ -72,17 +72,17 @@ watch/parseopt() {
   done
 }
 
+# post-war cleanup
 cleanup() {
   rm -rf "$TMPDIR"
-  echo cleaned up...
-}
-
-trapint() {
-  kill $(pgrep -P $WATCHERPID) $WATCHERPID
+  # kill spawned subshell and its children. Required when CTRL+C'ing the
+  # script. Otherwise the watcher subshell will spawn zombies :(
+  # Probably has to do with the way entr spawns process groups
+  if ps $WATCHERPID > /dev/null; then 
+    kill $(pgrep -P $WATCHERPID) $WATCHERPID
+  fi
   exit
 }
-
-trap "trapint" INT
 
 case "$1" in
   help|-h|--help)
@@ -105,13 +105,13 @@ case "$1" in
     FIFO="$TMPDIR/fifo"
     mkfifo "$FIFO"
     cleanup='rm -rf $tmpdir; echo cleanup'
-    trap "cleanup" 0 1 15
+    trap "cleanup" 0 1 15 INT
 
-    # MASK='[ terminate with ^C ]'
     MASK='launched in:'
     (
       echo "$(date): watcher started" > /dev/pts/2
       cat "$FIFO" | grep -qE "$MASK"
+      # TODO: execute --post commands here
       echo "$(date): triggered" > /dev/pts/2
       cat "$FIFO" > /dev/null
       echo "$(date): watcher terminated" > /dev/pts/2
