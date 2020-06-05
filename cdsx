@@ -1,5 +1,7 @@
 #!/usr/bin/env zsh
 
+# set -- watch --pre="sleep 5 &"
+
 TAIL=${0:t}
 
 usage() {
@@ -49,7 +51,8 @@ watch/parseopt() {
   shift
   local -a opts
   local -a precmds
-  zparseopts -a opts -- l d -pre+:=precmds
+  local -a postcmds
+  zparseopts -a opts -- l d -pre+:=precmds -post+=postcmds
 
   # concatenate all flags to a single string FLAGS
   # TODO
@@ -61,7 +64,25 @@ watch/parseopt() {
   for ((ii = 2; ii <= ${#precmds}; ii += 2)); do
     PRECMDS+=$(echo $precmds[$ii] | sed 's/^=//g')
   done
+
+  # store postcmds as array POSTCMDS
+  POSTCMDS=()
+  for ((ii = 2; ii <= ${#postcmds}; ii += 2)); do
+    POSTCMDS+=$(echo $postcmds[$ii] | sed 's/^=//g')
+  done
 }
+
+cleanup() {
+  rm -rf "$TMPDIR"
+  echo cleaned up...
+}
+
+trapint() {
+  kill $(pgrep -P $WATCHERPID) $WATCHERPID
+  exit
+}
+
+trap "trapint" INT
 
 case "$1" in
   help|-h|--help)
@@ -78,7 +99,28 @@ case "$1" in
     for ((ii = ${#PRECMDS}; ii >= 1; ii -= 1)); do
       entrcmd="($PRECMDS[$ii]) && $entrcmd"
     done
-    watch/watchlist | entr -rs "$entrcmd"
+
+    TMPDIR=$(mktemp -d -p /tmp cdsx-fifo-XXXXXX)
+    echo "tmpdir = $TMPDIR"
+    FIFO="$TMPDIR/fifo"
+    mkfifo "$FIFO"
+    cleanup='rm -rf $tmpdir; echo cleanup'
+    trap "cleanup" 0 1 15
+
+    # MASK='[ terminate with ^C ]'
+    MASK='launched in:'
+    (
+      echo "$(date): watcher started" > /dev/pts/2
+      cat "$FIFO" | grep -qE "$MASK"
+      echo "$(date): triggered" > /dev/pts/2
+      cat "$FIFO" > /dev/null
+      echo "$(date): watcher terminated" > /dev/pts/2
+    ) &
+    WATCHERPID=$!
+    echo "$WATCHERPID"
+
+    watch/watchlist | entr -rs "$entrcmd" | tee "$FIFO"
+
   ;;
   *)
     usage
