@@ -1,15 +1,32 @@
 #!/usr/bin/env zsh
 
-# debug
-# set -- watch -d --pre="rm ./sqlite.db" --pre="cmd3 arg1 arg2"
-
-FILE=${0}
+TAIL=${0:t}
 
 usage() {
-  echo "Lightweight wrapper around the cds command-line. Usage:
+  printf \
+"\033[1mNAME\033[0m
+\t$TAIL - Extension to SAP's cds cli.
 
-  $FILE watch [ -d ] [ --pre=<COMMAND> ]
-  $FILE watch [ -l ]"
+\033[1mSYNOPSIS\033[0m
+\t$TAIL watch [OPTIONS]
+
+\033[1mOPTIONS\033[0m
+\t-l | --watchlist
+\t\tPrint newline-sep'd list of watched files and exit.
+
+\t--pre=<CMD>
+\t\tExecutes a command prior to serving the project. Can be invoked multiple
+\t\ttimes to run multiple command in the order of their declaration. Execution
+\t\tterminates if any command in the chain fails.
+
+\t\tExample: \033[3;32m$TAIL --pre='rm ./sqlite.db' --pre='cds deploy'\033[0m
+\t\twill execute \033[3;32mrm ./sqlite.db && cds deploy\033[0m prior to serving the project.
+
+\t-d | --redeploy
+\t\tRedeploy to database on file change. Equivalent to --pre='cds deploy'.
+\t\tExecuted as the very last command when used alongside other '--pre=...'
+\t\toptions.
+"
 
   exit
 }
@@ -36,7 +53,6 @@ watch/parseopt() {
 
   # concatenate all flags to a single string FLAGS
   FLAGS=$(echo "$opts" | tr -d ' -')
-  echo "FLAGS=$FLAGS"
 
   # store precmds as array PRECMDS
   PRECMDS=()
