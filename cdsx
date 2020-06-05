@@ -76,7 +76,7 @@ case "$1" in
     entrcmd="cds serve"
     isflagset d && entrcmd="cds deploy && $entrcmd"
     for ((ii = ${#PRECMDS}; ii >= 1; ii -= 1)); do
-      entrcmd="$PRECMDS[$ii] && $entrcmd"
+      entrcmd="($PRECMDS[$ii]) && $entrcmd"
     done
     watch/watchlist | entr -rs "$entrcmd"
   ;;
