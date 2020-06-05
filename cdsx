@@ -73,7 +73,7 @@ case "$1" in
     isflagset l && watch/watchlist && exit
 
     # -d | --pre=<cmd>: build command string and run
-    entrcmd="cds watch"
+    entrcmd="cds serve"
     isflagset d && entrcmd="cds deploy && $entrcmd"
     for ((ii = ${#PRECMDS}; ii >= 1; ii -= 1)); do
       entrcmd="$PRECMDS[$ii] && $entrcmd"
