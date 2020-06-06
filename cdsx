@@ -1,7 +1,5 @@
 #!/usr/bin/env zsh
 
-# set -- watch --pre="sleep 5 &"
-
 TAIL=${0:t}
 
 usage() {
@@ -18,18 +16,21 @@ usage() {
 
 \t--pre=<CMD>
 \t\tExecutes a command prior to serving the project. Can be invoked multiple
-\t\ttimes to run multiple command in the order of their declaration. Execution
+\t\ttimes to run multiple commands in the order of their declaration. Execution
 \t\tterminates if any command in the chain fails.
 
-\t\tExample: \033[3;32m$TAIL --pre='rm ./sqlite.db' --pre='cds deploy'\033[0m
-\t\twill execute \033[3;32mrm ./sqlite.db && cds deploy\033[0m prior to serving the project.
+\t\tExample: \033[3;32m$TAIL --pre='rm ./sqlite.db' --pre='cds deploy'\033[0m will execute
+\t\t\033[3;32m(rm ./sqlite.db) && (cds deploy)\033[0m prior to serving the project.
+
+\t--post=<CMD>
+\t\tExecutes a command after all services are live. Usage according to
+\t\t'--pre=...' options. Can be invoked multiple times.
 
 \t-d | --redeploy
 \t\tRedeploy to database on file change. Equivalent to --pre='cds deploy'.
 \t\tExecuted as the very last command when used alongside other '--pre=...'
 \t\toptions.
 "
-
   exit
 }
 
@@ -49,15 +50,16 @@ watch/watchlist() {
 # parse cli options for watch subcommand
 watch/parseopt() {
   shift
-  local -a opts
+  local -a flags
   local -a precmds
   local -a postcmds
-  zparseopts -a opts -- l d -pre+:=precmds -post+=postcmds
+  zparseopts -a flags -- l d -pre+:=precmds -post+:=postcmds || exit 1
 
   # concatenate all flags to a single string FLAGS
   # TODO
   #   [ ]: add --redeploy and --watchlist long alternatives
-  FLAGS=$(echo "$opts" | tr -d ' -')
+  #   [ ]: allow to set watchlist from parameter
+  FLAGS=$(echo "$flags" | tr -d ' -')
 
   # store precmds as array PRECMDS
   PRECMDS=()
@@ -78,9 +80,7 @@ cleanup() {
   # kill spawned subshell and its children. Required when CTRL+C'ing the
   # script. Otherwise the watcher subshell will spawn zombies :(
   # Probably has to do with the way entr spawns process groups
-  if ps $WATCHERPID > /dev/null; then 
-    kill $(pgrep -P $WATCHERPID) $WATCHERPID
-  fi
+  { kill $WATCHERPID && kill $(pgrep -P $WATCHERPID) } > /dev/null 2>&1
   exit
 }
 
@@ -93,33 +93,53 @@ case "$1" in
     # -l | --watchlist: print watchlist end exit
     isflagset l && watch/watchlist && exit
 
-    # -d | --pre=<cmd>: build command string and run
+    # -d | --pre=<cmd>: build command string to be exec'd by 'entr -s'
+    #   before serving project
     entrcmd="cds serve"
     isflagset d && entrcmd="cds deploy && $entrcmd"
     for ((ii = ${#PRECMDS}; ii >= 1; ii -= 1)); do
       entrcmd="($PRECMDS[$ii]) && $entrcmd"
     done
 
-    TMPDIR=$(mktemp -d -p /tmp cdsx-fifo-XXXXXX)
-    echo "tmpdir = $TMPDIR"
-    FIFO="$TMPDIR/fifo"
-    mkfifo "$FIFO"
-    cleanup='rm -rf $tmpdir; echo cleanup'
-    trap "cleanup" 0 1 15 INT
+    # --post=<cmd>: build command string to be exec'd by 'eval' after
+    #   service went live
+    [ ! -z "$POSTCMDS[1]" ] && evalcmd="($POSTCMDS[1])"
+    for ((ii = 2; ii <= ${#POSTCMDS}; ii += 1)); do
+      evalcmd="$evalcmd && ($POSTCMDS[$ii])"
+    done
 
-    MASK='launched in:'
-    (
-      echo "$(date): watcher started" > /dev/pts/2
-      cat "$FIFO" | grep -qE "$MASK"
-      # TODO: execute --post commands here
-      echo "$(date): triggered" > /dev/pts/2
-      cat "$FIFO" > /dev/null
-      echo "$(date): watcher terminated" > /dev/pts/2
-    ) &
-    WATCHERPID=$!
-    echo "$WATCHERPID"
+    # spawn a bg watcher to observe stdout of $entrcmd and trigger actions
+    # when the output matches a target string. We use this to detect when
+    # 'cds serve' has gone live.
+    if [ ! -z "$evalcmd" ]; then
+      TMPDIR=$(mktemp -d -p /tmp cdsx-fifo-XXXXXX)
+      FIFO="$TMPDIR/fifo"
+      mkfifo "$FIFO"
+      trap cleanup 0 1 15 INT
+      (
+        # TODO(info): What's the difference between '(cat $FIFO &) | grep -qF ..'
+        #             and 'cat $FIFO | grep -qF ..'? The latter causes the pipeline
+        #             to exit later or not at all. Smells like a buffering issue.
+        #             stdbuf and unbuffer didn't help.
+        (cat "$FIFO" &) | grep -qF '[cds] - server listening on { url: '
+        eval "$evalcmd"
+        # TODO(fix): wrap inside while:;
+        cat "$FIFO" > /dev/null
+      ) &
+      WATCHERPID=$!
+    fi
 
-    watch/watchlist | entr -rs "$entrcmd" | tee "$FIFO"
+    # TODO(fix): entr -s "cds serve" shows '[ terminate ... ]' while
+    #            entr -rs "cds serve" does not. -r seems to absorb
+    #            the last line. Why?
+    #
+    #            Note that 'cds watch' adds an additional newline wrt
+    #            'cds serve' which is why I can trigger --post= cmds on
+    #            grep -F '[ terminate with ^C ]' for 'cds watch' but not for
+    #            'cds serve' as the final line is swallowed by entr :(
+    #
+    [ -z "$FIFO" ] && sink=/dev/null || sink="$FIFO"
+    watch/watchlist | entr -rs "$entrcmd" | tee "$sink"
 
   ;;
   *)
