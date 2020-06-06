@@ -34,12 +34,12 @@ usage() {
   exit
 }
 
-# return if a flag is set
+# true iff $1 is substring of $FLAGS
 isflagset() {
   echo "$FLAGS" | grep -qF "$1"
 }
 
-# returns watchlist
+# prints watchlist
 watch/watchlist() {
   find '.' -type f                \
     -not -path '*/\.*'            \
@@ -56,9 +56,6 @@ watch/parseopt() {
   zparseopts -a flags -- l d -pre+:=precmds -post+:=postcmds || exit 1
 
   # concatenate all flags to a single string FLAGS
-  # TODO
-  #   [ ]: add --redeploy and --watchlist long alternatives
-  #   [ ]: allow to set watchlist from parameter
   FLAGS=$(echo "$flags" | tr -d ' -')
 
   # store precmds as array PRECMDS
@@ -78,10 +75,7 @@ watch/parseopt() {
 cleanup() {
   rm -rf "$TMPDIR"
 
-  # kill spawned subshell and its children. Required when CTRL+C'ing the
-  # script. Otherwise the watcher subshell will spawn zombies :(
-  # Probably has to do with the way entr spawns process groups and kills
-  # them itself.
+  # make sure to kill spawned subshells and its children.
   pkill -P "$WATCHERPID" > /dev/null 2>&1
   kill "$WATCHERPID" > /dev/null 2>&1
   exit
@@ -129,16 +123,6 @@ case "$1" in
       } &
       WATCHERPID=$!
     fi
-
-    # TODO(fix): entr -s "cds serve" shows '[ terminate ... ]' while
-    #            entr -rs "cds serve" does not. -r seems to absorb
-    #            the last line. Why?
-    #
-    #            Note that 'cds watch' adds an additional newline wrt
-    #            'cds serve' which is why I can trigger --post= cmds on
-    #            grep -F '[ terminate with ^C ]' for 'cds watch' but not for
-    #            'cds serve' as the final line is swallowed by entr :(
-    #
     [ -z "$FIFO" ] && sink=/dev/null || sink="$FIFO"
     watch/watchlist | entr -rs "$entrcmd" | tee "$sink"
   ;;
@@ -148,3 +132,16 @@ case "$1" in
     ;;
 
 esac
+
+# TODO(feat): add --redeploy and --watchlist long opt
+# TODO(feat): allow to set or augment watchlist from parameter l=.., l+=..
+# TODO(fix): entr -r swallows last line of service startup output
+#
+#            entr -s "cds serve" shows '[ terminate ... ]' while
+#            entr -rs "cds serve" does not. -r seems to absorb
+#            the last line. Why?
+#
+#            Note that 'cds watch' adds an additional newline wrt
+#            'cds serve' which is why I can trigger --post= cmds on
+#            grep -F '[ terminate with ^C ]' for 'cds watch' but not for
+#            'cds serve' as the final line is swallowed by entr :(
