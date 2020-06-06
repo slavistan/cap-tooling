@@ -77,16 +77,21 @@ watch/parseopt() {
 # post-war cleanup
 cleanup() {
   rm -rf "$TMPDIR"
+
   # kill spawned subshell and its children. Required when CTRL+C'ing the
   # script. Otherwise the watcher subshell will spawn zombies :(
-  # Probably has to do with the way entr spawns process groups
-  { kill $WATCHERPID && kill $(pgrep -P $WATCHERPID) } > /dev/null 2>&1
+  # Probably has to do with the way entr spawns process groups and kills
+  # them itself.
+  pkill -P "$WATCHERPID" > /dev/null 2>&1
+  kill "$WATCHERPID" > /dev/null 2>&1
   exit
 }
 
 case "$1" in
   help|-h|--help)
-    usage ;;
+    usage
+    ;;
+
   watch)
     watch/parseopt "$@"
 
@@ -116,16 +121,12 @@ case "$1" in
       FIFO="$TMPDIR/fifo"
       mkfifo "$FIFO"
       trap cleanup 0 1 15 INT
-      (
-        # TODO(info): What's the difference between '(cat $FIFO &) | grep -qF ..'
-        #             and 'cat $FIFO | grep -qF ..'? The latter causes the pipeline
-        #             to exit later or not at all. Smells like a buffering issue.
-        #             stdbuf and unbuffer didn't help.
-        (cat "$FIFO" &) | grep -qF '[cds] - server listening on { url: '
-        eval "$evalcmd"
-        # TODO(fix): wrap inside while:;
-        cat "$FIFO" > /dev/null
-      ) &
+      {
+        while :; do
+          grep -qF '[cds] - server listening on { url: ' "$FIFO" || break
+          eval "$evalcmd"
+        done
+      } &
       WATCHERPID=$!
     fi
 
@@ -140,9 +141,10 @@ case "$1" in
     #
     [ -z "$FIFO" ] && sink=/dev/null || sink="$FIFO"
     watch/watchlist | entr -rs "$entrcmd" | tee "$sink"
-
   ;;
+
   *)
     usage
     ;;
+
 esac
