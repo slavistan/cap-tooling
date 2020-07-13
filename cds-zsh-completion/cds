@@ -1,0 +1,75 @@
+_cds() {
+
+  local line
+
+  _basecmds() {
+    local -a commands; commands=(
+      "init":"jump-start cds-based projects"
+      "compile":"process models selectively"
+      "deploy":"e.g. to databases or cloud"
+      "serve":"run servers locally"
+      "watch":"restart server on file changes"
+      "import":"add models from external sources"
+      "repl":"read-eval-event loop"
+      "env":"get/set cds configuration"
+      "build":"prepare for deployment"
+      "version":"get detailed version information"
+      "help":"get detailed usage information"
+    )
+    _describe '' commands
+  }
+
+  _arguments -C \
+    "1: :_basecmds" \
+    "*:: :->args"
+
+  case $line[1] in
+    deploy) __deploy;;
+    init) __init;;
+
+  esac
+}
+
+__init() {
+
+  _arguments -C \
+    "1: :_files" \
+    "--add[Comma-sep'd list of features 'java', 'hana', 'mta' or 'pipeline'.]" \
+    "--java\:mvn[Comma-sep'd maven archetype specific parameters.]" \
+    "--force[Overwrite all files.]" \
+    "--verbose[Show additional console output.]" \
+}
+
+__deploy() {
+
+  # Produce a list of models to deploy.
+  _models() {
+    local -a model;
+
+    # Search package.json for models. If unavailable check to see if the
+    # default ./db/schema.cds exists.
+    # TODO: Cache check for existence of jq
+    if ! models=($(jq -er '.cds.requires[].model | select (.=null)' ./package.json 2>/dev/null)); then
+      [ -f ./db/schema.cds ] && models=( ./db/schema.cds )
+    fi
+
+    # If no model has been found choose a file manually
+    if [ ! ${#models[@]} -eq 0 ]; then
+      _describe 'MODEL' models
+    else
+      _files
+    fi
+  }
+
+  # TODO: --to shall expand to choice between sqlite and hana immediately
+  #       --to shall not produce a space after to allow for a ':filename'
+  _arguments -C \
+    "1: :_models" \
+    "--to[Deploy to 'sqlite' or 'hana'. Append optional DB-path after colon.]: :(sqlite hana)" \
+    "--dry[Print the SQL statements without executing them.]" \
+    "--no-save[Do not modify package.json.]" \
+    "--auto-undeploy[Tell HDI deployer to automatically undeploy deleted resources.]" \
+    "--tunnel-address[Deploy through given (host:port).]" \
+}
+
+compdef _cds cds
