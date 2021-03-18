@@ -6,11 +6,21 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "@sap/cds": "^3",
-    "express": "^4",
-    "sqlite3": "^4.2.0"
+    "@sap/cds": "^4",
+    "express": "^4"
+  },
+  "devDependencies": {
+    "sqlite3": "^5.0.2"
   },
   "scripts": {
-    "start": "npx cds run"
+    "start": "cds run"
+  },
+  "cds": {
+    "requires": {
+      "db": {
+        "kind": "sqlite",
+        "credentials": {"database": "sqlite.db"}
+      }
+    }
   }
 }

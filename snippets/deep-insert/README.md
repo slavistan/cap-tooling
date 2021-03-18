@@ -7,3 +7,12 @@ Deep insertion of data may be performed where entities are interrelated by compo
 Deep insertion works exclusively for composition, not association. Rationale for this is suggested by the following quote from the CAP reference:
 
 > Essentially, Compositions are the same as associations, just with the additional information that this association represents a contained-in relationship so the same syntax and rules apply in their base form.
+
+## Usage
+
+```
+npm install
+cds deploy
+cds watch
+```
+Afterwards, fire POSTs from *test/shop.http*.
