@@ -1,25 +1,42 @@
-### Single entity insert
-
-POST http://localhost:4004/admin/Students HTTP/1.1
+###
+POST http://localhost:4004/shop/Orders HTTP/1.1
 content-type: application/json
 
 {
-    "name": "Peter Griffith",
-    "room": {
-       "address": "Mountain Ave. 137",
-       "roomnumber": 24
-    },
-    "books": [
+    "customer": "Andreas Müller",
+    "items": [
         {
-           "title": "Experimental Physics I",
-           "state": 2
+            "product": "Oisters",
+            "quantity": 25
         },
         {
-            "title": "Introduction to Linear Algebra",
-            "state": null
+            "product": "Water"
         },
         {
-            "title": "The End of Times"
+            "product": "Beer",
+            "quantity": 50
+        }
+    ]
+}
+
+###
+
+POST http://localhost:4004/shop/Orders HTTP/1.1
+content-type: application/json
+
+{
+    "customer": "Peter Fischer",
+    "items": [
+        {
+            "product": "Oil Canister"
+        },
+        {
+            "product": "Butter",
+            "quantity": 18
+        },
+        {
+            "product": "Shotgun",
+            "quantity": 3
         }
     ]
 }

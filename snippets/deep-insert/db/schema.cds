@@ -1,25 +1,14 @@
 namespace ns;
 
-entity Students {
-    key ID: UUID;
-    name: String;
-    room: Composition of one Rooms on room.tenant = $self;
-    books: Composition of many Books on books.holder = $self;
+
+entity Orders {
+    key id: UUID;
+    customer: String; /* Would be assoc. to a customer in reality. */
+    items: Composition of many OrderItems on items.order = $self;
 }
 
-@cds.autoexpose
-entity Rooms {
-    key ID: UUID;
-    address: String;
-    roomnumber: Integer;
-    tenant: Association to one Students;
-}
-
-@cds.autoexpose
-entity Books {
-    key ID: UUID;
-    title: String;
-    state: Integer default 1;
-    holder: Association to one Students; 
-
+entity OrderItems {
+    key order: Association to Orders;
+    key product: String; /* Would be assoc. to a product in reality. */
+    quantity: Integer default 1;
 }

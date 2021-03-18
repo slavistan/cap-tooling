@@ -1,5 +1,5 @@
 using { ns } from '../db/schema.cds';
 
-service AdminService @(path:'/admin') {
-    entity Students as projection on ns.Students;
+service ShopService @(path:'/shop') {
+    entity Orders as projection on ns.Orders;
 }
